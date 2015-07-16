@@ -21,6 +21,6 @@ package = "consul"
  build = {
     type = "builtin",
     modules = {
-       consul = "consul.lua"
+       consul = "src/consul.lua"
     }
  }
