@@ -8,6 +8,13 @@ it covers only a fraction of consul API.
 
    We need luasocket, luasec and lua-cjson, which are, luckily, mentioned in the rockspec
 
+### Installation
+
+The simplest way is to install the module via luarocks:
+```
+luarocks install consul
+```
+
 ### Variables and functions
 #### Variables
 
@@ -36,7 +43,7 @@ and cjson.encode to convert a lua table into a string with proper json.
 #### Functions
 
 * **consul:get( key, [raw] )** - *key* should be the key prefix, if *raw* is present and is true, 
-the function will ask for the raw key value. Returns the obtained response body and also puts it into **consul.body**
+the function will ask for the raw key value. Returns the obtained response body and also puts it into *consul.body*
 
 * **consul:get_keys( prefix )** 
 * **consul:put( key, value )**  
