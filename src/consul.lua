@@ -46,7 +46,8 @@ local consul = {}
 
 consul.domain = os.getenv("CONSUL_DOMAIN") or "consul"
 
-if consul.url = os.getenv("CONSUL_URL") then
+consul.url = os.getenv("CONSUL_URL") 
+if consul.url then
     local parsed_url = url.parse(consul.url)
     consul.port = parsed.url.port
     consul.scheme = parsed.url.scheme
