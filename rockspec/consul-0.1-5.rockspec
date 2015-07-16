@@ -1,8 +1,9 @@
 package = "consul"
- version = "0.1-4"
+ version = "0.1-5"
  source = {
-    url = "https://github.com/epicfilemcnulty/lua-consul/archive/v0.1-4.zip",
-    tag = "v0.1-4",
+    url = "https://github.com/epicfilemcnulty/lua-consul/archive/v0.1-5.zip",
+    dir = "lua-consul-0.1-5",
+    tag = "v0.1-5",
  }
  description = {
     summary = "Module for working with consul HTTP API",
