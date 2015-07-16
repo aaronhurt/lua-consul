@@ -1,7 +1,7 @@
 package = "consul"
  version = "0.1-4"
  source = {
-    url = "https://github.com/epicfilemcnulty/lua-consul/archive/v0.1-4.zip"
+    url = "https://github.com/epicfilemcnulty/lua-consul/archive/v0.1-4.zip",
     tag = "v0.1-4",
  }
  description = {
