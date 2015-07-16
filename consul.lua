@@ -29,7 +29,6 @@ local http = require("socket.http")
 local url = require("socket.url")
 local ltn12 = require("ltn12")
 local cjson = require("cjson")
-local utils = require("utils")
 
 local consul = {}
 
@@ -108,16 +107,6 @@ consul.health_state = function( self, state )
     local state = state or "any"
     local api = "/v1/health/state/" .. state 
     self.body, self.status, self.headers = http.request( consul.url .. api) 
-
-end
-
-consul.report = function( self )                                                                                                                                  
-
-    print ("STATUS = " .. self.status)
-    print ("----HEADERS-----")
-    utils:dprint(self.headers)
-    print ("----HEADERS-----")
-    utils:dprint(self.body)
 
 end
 
