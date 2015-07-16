@@ -4,9 +4,18 @@
     Variables: 
 
         consul.url - this one is built upon initialisation, 
-                     based on the environment variables CONSUL_DOMAIN and CONSUL_PORT,
-                     or, if there are none, on the defaults '8500' and 'consul'
-        consul.domain - built upon init, based on the envrionment vars CONSUL_DOMAIN or default 'consul' 
+                     based on the following rules: 
+                    
+                        If environment variable CONSUL_URL is present,
+                        consul.url will be set to its value, and it also
+                        will be parsed to get consul.scheme and consul.port
+                    
+                        If there is no CONSUL_URL env var, consul.url will be built thusly:
+                        consul.url = consul.scheme .. '://consul.service.' .. consul.domain .. ':' .. consul.port
+
+        consul.domain - built upon init, based on the envrionment var CONSUL_DOMAIN or defaults to 'consul' 
+        consul.port - built upon init, based on the envrionment var CONSUL_PORT or defaults to '8500'. 
+        consul.scheme - built upon init, either defaults to 'http' or deducted from CONSUL_URL env var.
 
         consul.body - response body after performing an API request. Although consul provides responses in json,
                       in lua terms it's just a string. We use cjson.decode to convert json string into a lua table, 
@@ -17,7 +26,10 @@
 
     Functions:
 
-        consul:get( key, [raw] ) - 
+        consul:get( key, [raw] ) - key should be the key prefix, if raw is present and is true, 
+                                   the function will ask for the raw key value. return the obtained
+                                   response body and also puts it into consul.body
+
         consul:get_keys( prefix ) -
         consul:put( key, value ) - 
         consul:delete( key ) - 
