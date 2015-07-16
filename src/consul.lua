@@ -13,7 +13,7 @@
                         If there is no CONSUL_URL env var, consul.url will be built thusly:
                         consul.url = consul.scheme .. '://consul.service.' .. consul.domain .. ':' .. consul.port
 
-        consul.domain - built upon init, based on the envrionment var CONSUL_DOMAIN or defaults to 'consul' 
+        consul.domain - built upon init, based on the environment var CONSUL_DOMAIN or defaults to 'consul' 
         consul.port - built upon init, based on the envrionment var CONSUL_PORT or defaults to '8500'. 
         consul.scheme - built upon init, either defaults to 'http' or deducted from CONSUL_URL env var.
 
@@ -68,14 +68,14 @@ consul.get = function( self, key, raw )
 
 end
 
-consul.get_keys = function ( self, prefix )
+consul.get_keys = function( self, prefix )
 
     local api = "/v1/kv/" .. prefix .. "?keys"
     self.body, self.status, self.headers = http.request( consul.url .. api ) 
 
 end
 
-consul.put = function (self, key, value )
+consul.put = function(self, key, value )
 
     local body = {}
     local api = "/v1/kv/" .. key
@@ -93,7 +93,7 @@ consul.put = function (self, key, value )
 
 end
 
-consul.delete = function (self, key)
+consul.delete = function(self, key)
 
     local body = {}
     local api = "/v1/kv/" .. key
