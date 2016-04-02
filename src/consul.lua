@@ -5,10 +5,10 @@ local base64 = require("base64")
 
 -- module config
 local _M = {
-    _VERSION = "0.01",
-    kv       = { api = "/v1/kv" },
-    catalog  = { api = "/v1/catalog" },
-    health   = { api = "/v1/health" },
+    version = "0.01",
+    kv      = { api = "/v1/kv" },
+    catalog = { api = "/v1/catalog" },
+    health  = { api = "/v1/health" },
 }
 
 -- create new objects
