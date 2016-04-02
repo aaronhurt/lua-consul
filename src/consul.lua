@@ -1,126 +1,226 @@
---[[
-        Module for working with consul HTTP API.
-
-    Variables: 
-
-        consul.url - this one is built upon initialisation, 
-                     based on the following rules: 
-                    
-                        If environment variable CONSUL_URL is present,
-                        consul.url will be set to its value, and it also
-                        will be parsed to get consul.scheme and consul.port
-                    
-                        If there is no CONSUL_URL env var, consul.url will be built thusly:
-                        consul.url = consul.scheme .. '://consul.service.' .. consul.domain .. ':' .. consul.port
-
-        consul.domain - built upon init, based on the environment var CONSUL_DOMAIN or defaults to 'consul' 
-        consul.port - built upon init, based on the envrionment var CONSUL_PORT or defaults to '8500'. 
-        consul.scheme - built upon init, either defaults to 'http' or deducted from CONSUL_URL env var.
-
-        consul.body - response body after performing an API request. Although consul provides responses in json,
-                      in lua terms it's just a string. We use cjson.decode to convert json string into a lua table, 
-                      and cjson.encode to convert a lua table into a string with proper json. 
-
-        consul.status - response status after the request (number)
-        consul.headers - response headers after the request
-
-    Functions:
-
-        consul:get( key, [raw] ) - key should be the key prefix, if raw is present and is true, 
-                                   the function will ask for the raw key value. return the obtained
-                                   response body and also puts it into consul.body
-
-        consul:get_keys( prefix ) -
-        consul:put( key, value ) - 
-        consul:delete( key ) - 
-
-        consul:health_service( service, [tag] ) -
-        consul:health_state( state ) -                                                                                                                    ]]--
-
+-- init packages
 local http = require("socket.http")
-local url = require("socket.url")
 local ltn12 = require("ltn12")
 local cjson = require("cjson")
+local base64 = require("base64")
 
-local consul = {}
+-- base object
+Consul = {
+    -- read environment
+    addr = os.getenv("CONSUL_HTTP_ADDR") or "127.0.0.1:8500",
+    -- base api paths
+    kvApi = "/v1/kv",
+    catalogApi = "/v1/catalog",
+    healthApi = "/v1/health"
+}
 
-consul.domain = os.getenv("CONSUL_DOMAIN") or "consul"
-
-consul.url = os.getenv("CONSUL_URL") 
-if consul.url then
-    local parsed_url = url.parse(consul.url)
-    consul.port = parsed.url.port
-    consul.scheme = parsed.url.scheme
-else
-    consul.port = os.getenv("CONSUL_PORT") or "8500"
-    consul.scheme = "http"
-    consul.url = consul.scheme .. '://consul.service.' .. consul.domain .. ':' .. consul.port
+-- build object
+function Consul:new (o)
+    -- create new if not passed
+    o = o or {}
+    -- build prototype
+    setmetatable(o, self)
+    self.__index = self
+    -- build url
+    o.url = 'http://' .. o.addr
+    -- return object
+    return o
 end
 
-if consul.scheme == "https" then local http = require("ssl.https") end
-
-consul.get = function( self, key, raw )
-
-    local api = "/v1/kv/" .. key 
-    if raw then api = api .. "?raw" end
-    self.body, self.status, self.headers = http.request( consul.url .. api)
-    return self.body
-
-end
-
-consul.get_keys = function( self, prefix )
-
-    local api = "/v1/kv/" .. prefix .. "?keys"
-    self.body, self.status, self.headers = http.request( consul.url .. api ) 
-
-end
-
-consul.put = function(self, key, value )
-
-    local body = {}
-    local api = "/v1/kv/" .. key
-    
-    local code, status, headers = http.request({ url = consul.url .. api, method = "PUT",
-                   headers = { ["Content-Length"] = string.len(value) }, source = ltn12.source.string(value),
-                   sink = ltn12.sink.table(body)
-                 })
-
-    if code then 
-        self.status = status; self.header = headers; self.body = body 
+-- get a key/value
+function Consul:kvGet (key, decode)
+    local api = self.kvApi .. "/" .. key 
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        if decode then
+            for _, entry in ipairs(self.data) do
+                if type(entry.Value) == "string" then
+                    entry.Value = base64.decode(entry.Value)
+                end
+            end
+        end
+        return self.data
     else
         return false
     end
-
 end
 
-consul.delete = function(self, key)
-
-    local body = {}
-    local api = "/v1/kv/" .. key
-    local code, status, headers = http.request({ url = consul.url .. api, method = "DELETE", sink = ltn12.sink.table(body) })
-    if code then 
-        self.status = status; self.header = headers; self.body = body 
+-- list all keys under a prefix
+function Consul:kvKeys (prefix)
+    local api = self.kvApi .. "/" .. prefix .. "?keys"
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
     else
         return false
     end
-
 end
 
-consul.health_service = function( self, service, tag )
+-- write a key/value
+function Consul:kvPut (key, value)
+    local body = {}
+    local api = self.kvApi .. "/" .. key
+    if self.dc then api = api .. "?dc=" .. self.dc end
 
-    local api = "/v1/health/service/" .. service 
+    local code, status, headers = http.request({
+        url = self.url .. api,
+        method = "PUT",
+        headers = {
+            ["Content-Length"] = string.len(value)
+        },
+        source = ltn12.source.string(value),
+        sink = ltn12.sink.table(body)
+    })
+
+    if code then
+        self.status = status; self.header = headers; self.body = body
+        return true
+    else
+        self.status = ""; self.header = ""; self.body = ""
+        return false
+    end
+end
+
+-- delete a key or prefix
+function Consul:kvDelete (key, recurse)
+    local body = {}
+    local api = self.kvApi .. "/" .. key
+    if recurse then api = api .. "?recurse" end
+    if self.dc then api = api .. "?dc=" .. self.dc end
+
+    local code, status, headers = http.request({
+        url = self.url .. api,
+        method = "DELETE",
+        sink = ltn12.sink.table(body)
+    })
+
+    if code then
+        self.status = status; self.header = headers; self.body = body
+        return true
+    else
+        self.status = ""; self.header = ""; self.body = ""
+        return false
+    end
+end
+
+-- query health of the given node
+function Consul:healthNode (node)
+    local api = self.healthApi .. "/node/" .. node
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- query checks associated with a service
+function Consul:healthChecks(service)
+    local api = self.healthApi .. "/checks/" .. service 
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- query the health of a service
+function Consul:healthService(service, passing, tag)
+    local api = self.healthApi .. "/service/" .. service 
     if tag then api = api .. "?tag=" .. tag end
-
-    self.body, self.status, self.headers = http.request( consul.url .. api)
-
+    if passing then api = api .. "?passing" end
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
 end
 
-consul.health_state = function( self, state )
-
+-- query checks in given state
+function Consul:healthState (state)
     local state = state or "any"
-    local api = "/v1/health/state/" .. state 
-    self.body, self.status, self.headers = http.request( consul.url .. api) 
-
+    local api = self.healthApi .. "/state/" .. state
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
 end
 
-return consul
+-- list available datacenters
+function Consul:catalogDatacenters ()
+    local api = self.catalogApi .. "/datacenters"
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- list available nodes
+function Consul:catalogNodes ()
+    local api = self.catalogApi .. "/nodes"
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- query a specific node
+function Consul:catalogNode (node)
+    local api = self.catalogApi .. "/node/" .. node
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- list available services
+function Consul:catalogServices ()
+    local api = self.catalogApi .. "/services"
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
+
+-- query a specific service
+function Consul:catalogService (service)
+    local api = self.catalogApi .. "/service/" .. service
+    if self.dc then api = api .. "?dc=" .. self.dc end
+    self.body, self.status, self.headers = http.request(self.url .. api)
+    if self.status == 200 then
+        self.data = cjson.decode(self.body)
+        return self.data
+    else
+        return false
+    end
+end
