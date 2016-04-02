@@ -1,39 +1,37 @@
--- init packages
-local http = require("socket.http")
-local ltn12 = require("ltn12")
-local cjson = require("cjson")
+local http   = require("socket.http")
+local ltn12  = require("ltn12")
+local cjson  = require("cjson")
 local base64 = require("base64")
 
--- base object
-Consul = {
-    -- read environment
-    addr = os.getenv("CONSUL_HTTP_ADDR") or "127.0.0.1:8500",
-    -- base api paths
-    kvApi = "/v1/kv",
-    catalogApi = "/v1/catalog",
-    healthApi = "/v1/health"
+-- module config
+local _M = {
+    _VERSION = "0.01",
+    kv       = { api = "/v1/kv" },
+    catalog  = { api = "/v1/catalog" },
+    health   = { api = "/v1/health" },
 }
 
--- build object
-function Consul:new (o)
-    -- create new if not passed
-    o = o or {}
-    -- build prototype
+-- create new objects
+function _M:new (o)
+    local o  = o or {} -- create table if not passed
+    o.dc     = o.dc or nil
+    o.addr   = o.addr or os.getenv("CONSUL_HTTP_ADDR") or "127.0.0.1:8500"
+    o.url    = "http://" .. o.addr
+    o.cjson  = cjson:new()
+    -- set self
     setmetatable(o, self)
     self.__index = self
-    -- build url
-    o.url = 'http://' .. o.addr
-    -- return object
+    -- return table
     return o
 end
 
 -- get a key/value
-function Consul:kvGet (key, decode)
-    local api = self.kvApi .. "/" .. key 
+function _M:kvGet (key, decode)
+    local api = self.kv.api .. "/" .. key
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         if decode then
             for _, entry in ipairs(self.data) do
                 if type(entry.Value) == "string" then
@@ -48,12 +46,12 @@ function Consul:kvGet (key, decode)
 end
 
 -- list all keys under a prefix
-function Consul:kvKeys (prefix)
-    local api = self.kvApi .. "/" .. prefix .. "?keys"
+function _M:kvKeys (prefix)
+    local api = self.kv.api .. "/" .. prefix .. "?keys"
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -61,9 +59,9 @@ function Consul:kvKeys (prefix)
 end
 
 -- write a key/value
-function Consul:kvPut (key, value)
+function _M:kvPut (key, value)
     local body = {}
-    local api = self.kvApi .. "/" .. key
+    local api = self.kv.api .. "/" .. key
     if self.dc then api = api .. "?dc=" .. self.dc end
 
     local code, status, headers = http.request({
@@ -86,9 +84,9 @@ function Consul:kvPut (key, value)
 end
 
 -- delete a key or prefix
-function Consul:kvDelete (key, recurse)
+function _M:kvDelete (key, recurse)
     local body = {}
-    local api = self.kvApi .. "/" .. key
+    local api = self.kv.api .. "/" .. key
     if recurse then api = api .. "?recurse" end
     if self.dc then api = api .. "?dc=" .. self.dc end
 
@@ -108,12 +106,12 @@ function Consul:kvDelete (key, recurse)
 end
 
 -- query health of the given node
-function Consul:healthNode (node)
-    local api = self.healthApi .. "/node/" .. node
+function _M:healthNode (node)
+    local api = self.health.api .. "/node/" .. node
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -121,11 +119,11 @@ function Consul:healthNode (node)
 end
 
 -- query checks associated with a service
-function Consul:healthChecks(service)
-    local api = self.healthApi .. "/checks/" .. service 
+function _M:healthChecks(service)
+    local api = self.health.api .. "/checks/" .. service
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -133,14 +131,14 @@ function Consul:healthChecks(service)
 end
 
 -- query the health of a service
-function Consul:healthService(service, passing, tag)
-    local api = self.healthApi .. "/service/" .. service 
+function _M:healthService(service, passing, tag)
+    local api = self.health.api .. "/service/" .. service
     if tag then api = api .. "?tag=" .. tag end
     if passing then api = api .. "?passing" end
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -148,13 +146,13 @@ function Consul:healthService(service, passing, tag)
 end
 
 -- query checks in given state
-function Consul:healthState (state)
+function _M:healthState (state)
     local state = state or "any"
-    local api = self.healthApi .. "/state/" .. state
+    local api = self.health.api .. "/state/" .. state
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -162,11 +160,11 @@ function Consul:healthState (state)
 end
 
 -- list available datacenters
-function Consul:catalogDatacenters ()
-    local api = self.catalogApi .. "/datacenters"
+function _M:catalogDatacenters ()
+    local api = self.catalog.api .. "/datacenters"
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -174,12 +172,12 @@ function Consul:catalogDatacenters ()
 end
 
 -- list available nodes
-function Consul:catalogNodes ()
-    local api = self.catalogApi .. "/nodes"
+function _M:catalogNodes ()
+    local api = self.catalog.api .. "/nodes"
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -187,12 +185,12 @@ function Consul:catalogNodes ()
 end
 
 -- query a specific node
-function Consul:catalogNode (node)
-    local api = self.catalogApi .. "/node/" .. node
+function _M:catalogNode (node)
+    local api = self.catalog.api .. "/node/" .. node
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -200,12 +198,12 @@ function Consul:catalogNode (node)
 end
 
 -- list available services
-function Consul:catalogServices ()
-    local api = self.catalogApi .. "/services"
+function _M:catalogServices ()
+    local api = self.catalog.api .. "/services"
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
@@ -213,14 +211,17 @@ function Consul:catalogServices ()
 end
 
 -- query a specific service
-function Consul:catalogService (service)
-    local api = self.catalogApi .. "/service/" .. service
+function _M:catalogService (service)
+    local api = self.catalog.api .. "/service/" .. service
     if self.dc then api = api .. "?dc=" .. self.dc end
     self.body, self.status, self.headers = http.request(self.url .. api)
     if self.status == 200 then
-        self.data = cjson.decode(self.body)
+        self.data = self.cjson.decode(self.body)
         return self.data
     else
         return false
     end
 end
+
+-- return module table
+return _M
