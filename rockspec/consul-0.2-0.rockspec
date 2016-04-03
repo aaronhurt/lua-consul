@@ -8,7 +8,7 @@ package = "consul"
  description = {
     summary = "Module for working with consul HTTP API",
     detailed = [[
-        Lua module to interact with consul (http://consul.io) HTTP API        
+        Lua module to interact with consul (http://consul.io) HTTP API
     ]],
     homepage = "https://github.com/leprechau/lua-consul",
     license = "BSD"
