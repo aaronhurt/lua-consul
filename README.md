@@ -10,6 +10,7 @@ https://www.consul.io/docs/agent/http.html
 
 ### Currently Implemented Calls
 
+```text
    * consul:new [object]									Make a new module object
    * consul:kvGet <key>, [decode]							Get a key/value and optionally base64 decode
    * consul:kvKeys <prefix>									Get a list of keys under a given prefix
@@ -24,6 +25,7 @@ https://www.consul.io/docs/agent/http.html
    * consul:catalogNode <node>								Get information on the given node
    * consul:catalogServices									Obtain a list of all services in the catalog
    * consul:catalogService <service>						Obtain information about the given service
+```
 
 ### Example Usage
 
