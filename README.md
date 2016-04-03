@@ -12,18 +12,18 @@ https://www.consul.io/docs/agent/http.html
 
 ```text
 consul:new [object]									Make a new module object
-consul:kvGet <key>, [decode]							Get a key/value and optionally base64 decode
-consul:kvKeys <prefix>									Get a list of keys under a given prefix
+consul:kvGet <key>, [decode]						Get a key/value and optionally base64 decode
+consul:kvKeys <prefix>								Get a list of keys under a given prefix
 consul:kvPut <key>, <value>							Write a key/value to the Consul store
-consul:kvDelete <key>, [recurse]						Delete a key and optionally recurse down the prefix
-consul:healthNode <node>								Get the health of the given node
-consul:healthChecks <service>							Get all health checks associated with a given node
-consul:healthService <service>, [passing], [tag]		Return the health of the given service
-consul:healthState [state]								Return all checks of the given state (default: any)
-consul:catalogDatacenters								Obtain a list of all available datacenters
+consul:kvDelete <key>, [recurse]					Delete a key and optionally recurse down the prefix
+consul:healthNode <node>							Get the health of the given node
+consul:healthChecks <service>						Get all health checks associated with a given node
+consul:healthService <service>, [passing], [tag]	Return the health of the given service
+consul:healthState [state]							Return all checks of the given state (default: any)
+consul:catalogDatacenters							Obtain a list of all available datacenters
 consul:catalogNodes									Obtain a list of all available nodes
-consul:catalogNode <node>								Get information on the given node
-consul:catalogServices									Obtain a list of all services in the catalog
+consul:catalogNode <node>							Get information on the given node
+consul:catalogServices								Obtain a list of all services in the catalog
 consul:catalogService <service>						Obtain information about the given service
 ```
 
