@@ -1,8 +1,8 @@
 ## Synopsis
 
-Fork and major rewrite of https://github.com/epicfilemcnulty/lua-consul fixing some obvious ommisions and addition of several missing methods.  The original source seems to be abandoned.
+Fork and rewrite of https://github.com/epicfilemcnulty/lua-consul fixing some obvious ommisions and addition of several missing methods.  The original source seems to be abandoned.
 
-The code has been cleaned up and is more than usable.  Every function has two returns (data and error).  The data element will be the decoded JSON response from the Consul API and error will always be nil on a successful return.
+The code has been cleaned up and extensively refactored.  Every function has two returns (data and error).  The data element will be the decoded JSON response from the Consul API and error will always be nil on a successful return.
 
 You can find more information about the basic API structure in the Consul HTTP API documentation.
 
