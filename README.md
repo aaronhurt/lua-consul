@@ -27,15 +27,22 @@ consul:catalogServices								Obtain a list of all services in the catalog
 consul:catalogService <service>						Obtain information about the given service
 ```
 
+### Installation
+
+The simplest installation method is to use luarocks:
+```
+$ luarocks install --server=http://luarocks.org/dev lua-consul
+```
+
 ### Example Usage
 
-Load the package ...
+Load the package:
 ```lua
 consul = require("consul")
 c = consul:new()
 ```
 
-Get a list of available datacenters ...
+Get a list of available datacenters:
 ```lua
 dcs, err = c:catalogDatacenters()
 if dcs and err == nil then
@@ -45,13 +52,13 @@ if dcs and err == nil then
 end
 ```
 
-Returns ...
+Returns:
 ```
 1	dc1
 2	dc2
 ```
 
-Query all passign services ...
+Query all passign services:
 ```lua
 svc, err = c:healthService("testing", true)
 if svc and err == nil then
@@ -65,7 +72,7 @@ if svc and err == nil then
 end
 ```
 
-Returns ...
+Returns:
 ```
 1	Node	CreateIndex	3030615
 1	Node	ModifyIndex	3274460
@@ -118,7 +125,7 @@ Returns ...
 
 In addition to the Consul library there is a proof-of-concept HAProxy integration in this repository.
 
-Basic usage from the src directory...
+Basic usage from the src directory:
 ```
 $ haproxy -d -f ./haproxy.cfg
 Note: setting global.maxconn to 2000.
@@ -159,8 +166,7 @@ Using kqueue() as the polling mechanism.
 00000001:main.closed[0007:0008]
 ```
 
-Testing from another window ...
-
+Testing from another window:
 ```
 $ curl -vvv http://localhost:10001/test/test.php
 *   Trying 127.0.0.1...
@@ -198,4 +204,4 @@ $ curl -vvv http://localhost:10001/test/test.php
 ### TODO
 
 * Complete additional Consul methods
-* Split various calls into thier own modules in a single package
+* Further develop and test the HAProxy integration

@@ -1,7 +1,8 @@
 package = "lua-consul"
  version = "scm-0"
  source = {
-    url = "https://github.com/leprechau/lua-consul.git",
+    url = "https://github.com/leprechau/lua-consul/archive/master.zip",
+    dir = "lua-consul-master",
  }
  description = {
     summary = "Module for interacting with the Consul HTTP API",
