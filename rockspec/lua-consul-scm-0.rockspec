@@ -1,15 +1,10 @@
-package = "consul"
- version = "0.2-0"
+package = "lua-consul"
+ version = "scm-0"
  source = {
-    url = "",
-    dir = "",
-    tag = "",
+    url = "https://github.com/leprechau/lua-consul.git",
  }
  description = {
-    summary = "Module for working with consul HTTP API",
-    detailed = [[
-        Lua module to interact with consul (http://consul.io) HTTP API
-    ]],
+    summary = "Module for interacting with the Consul HTTP API",
     homepage = "https://github.com/leprechau/lua-consul",
     license = "BSD"
  }
