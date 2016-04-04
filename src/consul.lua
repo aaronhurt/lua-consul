@@ -69,7 +69,7 @@ local function callConsul (self, api, input, method)
     -- check return
     if not data or err ~= nil then
         -- error out
-        return nil, err
+        return nil, tostring(err)
     end
 
     -- all okay

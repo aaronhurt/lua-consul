@@ -34,7 +34,7 @@ local function loadServices ()
 	if not data or err ~= nil then
 		-- error out
 		core.log(core.alert,
-			string.format("Failed to init service listing: %s", err))
+			string.format("Failed to retrieve service listing: %s", err))
 		return
 	end
 
@@ -82,6 +82,9 @@ local function loadServices ()
 		end
 	end
 
+	-- set update time
+	sdata["updated"] = os.time()
+
 	-- export service data
 	services = sdata
 
@@ -98,6 +101,11 @@ function generateRequest (txn)
 		-- error out
 		txn:Warning("Missing service list")
 		return
+	end
+
+	-- check last update and refresh if needed
+	if (os.time() - services["updated"]) > 15 then
+		loadServices()
 	end
 
 	-- get request path
