@@ -159,7 +159,7 @@ Using kqueue() as the polling mechanism.
 00000001:main.closed[0007:0008]
 ```
 
-Testing from another client
+Testing from another window ...
 
 ```
 $ curl -vvv http://localhost:10001/test/test.php
