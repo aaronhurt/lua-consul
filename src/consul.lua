@@ -21,11 +21,19 @@ local function callConsul (self, api, input, method)
 
     -- build request
     local request = {
-        url = self.url .. api,
-        method = method or "GET",
-        sink = ltn12.sink.table(output),
+        url     = self.url .. api,
+        method  = method or "GET",
+        sink    = ltn12.sink.table(output),
         headers = { accept = "application/json" },
     }
+
+    -- set create option if specified
+    if self.create then
+        request.create = self.create
+    end
+
+    -- set timeout
+    http.TIMEOUT = self.timeout
 
     -- add input if specified and valid
     if input and type(input) == "string" and string.len(input) > 0 then
@@ -37,9 +45,15 @@ local function callConsul (self, api, input, method)
     local response, status = http.request(request)
 
     -- check return
-    if not response or status ~= 200 then
+    if not response then
         -- error out
-        return nil, "Failed to execute request.  Consul responded: " .. status
+        return nil, "Failed to execute request."
+    end
+
+    -- check status
+    if not status or status ~= 200 then
+        -- error out
+        return nil, "Failed to execute request.  Consul returned: " .. status
     end
 
     -- validate output
@@ -64,10 +78,12 @@ end
 
 -- create new object
 function _M:new (o)
-    local o  = o or {} -- create table if not passed
-    o.dc     = o.dc or nil
-    o.addr   = o.addr or os.getenv("CONSUL_HTTP_ADDR") or "127.0.0.1:8500"
-    o.url    = "http://" .. o.addr
+    local o   = o or {} -- create table if not passed
+    o.dc      = o.dc or nil
+    o.addr    = o.addr or os.getenv("CONSUL_HTTP_ADDR") or "127.0.0.1:8500"
+    o.url     = "http://" .. o.addr
+    o.create  = o.create or nil
+    o.timeout = o.timeout or 15
     -- set self
     setmetatable(o, self)
     self.__index = self

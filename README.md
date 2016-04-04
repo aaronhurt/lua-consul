@@ -114,6 +114,87 @@ Returns ...
 3	Service	ID	testing-e09a259bbe2f
 ```
 
+### HAProxy
+
+In addition to the Consul library there is a proof-of-concept HAProxy integration in this repository.
+
+Basic usage from the src directory...
+```
+$ haproxy -d -f ./haproxy.cfg
+Note: setting global.maxconn to 2000.
+Available polling systems :
+     kqueue : pref=300,  test result OK
+       poll : pref=200,  test result OK
+     select : pref=150,  test result FAILED
+Total: 3 (2 usable), will use kqueue.
+Using kqueue() as the polling mechanism.
+[debug] 093/214104 (21861) : Loading service catalog from 127.0.0.1:8500
+[debug] 093/214105 (21861) : Loaded 12 services from catalog
+
+... request from another client ...
+
+00000000:main.accept(0005)=0007 from [127.0.0.1:53642]
+00000000:main.clireq[0007:ffffffff]: GET /test/test.php HTTP/1.1
+00000000:main.clihdr[0007:ffffffff]: Host: localhost:10001
+00000000:main.clihdr[0007:ffffffff]: User-Agent: curl/7.43.0
+00000000:main.clihdr[0007:ffffffff]: Accept: */*
+[debug] 093/214113 (21861) : checking path /test/test.php for svc: testyTest
+[debug] 093/214113 (21861) : checking path /test/test.php for svc: someService
+[debug] 093/214113 (21861) : checking path /test/test.php for svc: anotherService
+[debug] 093/214113 (21861) : checking path /test/test.php for svc: test
+[debug] 093/214113 (21861) : found match - setting addr to 10.27.18.115:8081
+[debug] 093/214113 (21861) : set uri: http://10.27.18.115:8081/test/test.php
+00000000:dynamic.srvrep[0007:0008]: HTTP/1.1 200 OK
+00000000:dynamic.srvhdr[0007:0008]: Server: nginx/1.8.1
+00000000:dynamic.srvhdr[0007:0008]: Date: Mon, 04 Apr 2016 02:48:04 GMT
+00000000:dynamic.srvhdr[0007:0008]: Content-Type: text/html
+00000000:dynamic.srvhdr[0007:0008]: Transfer-Encoding: chunked
+00000000:dynamic.srvhdr[0007:0008]: Connection: keep-alive
+00000000:dynamic.srvhdr[0007:0008]: X-Powered-By: PHP/5.4.19
+00000000:dynamic.srvhdr[0007:0008]: Set-Cookie: PHPSessionID=hha7hd7td3bldcc9gruj8jqf76; path=/
+00000000:dynamic.srvhdr[0007:0008]: Expires: Thu, 19 Nov 1981 08:52:00 GMT
+00000000:dynamic.srvhdr[0007:0008]: Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+00000000:dynamic.srvhdr[0007:0008]: Pragma: no-cache
+00000001:main.clicls[0007:0008]
+00000001:main.closed[0007:0008]
+```
+
+Testing from another client
+
+```
+$ curl -vvv http://localhost:10001/test/test.php
+*   Trying 127.0.0.1...
+* Connected to localhost (127.0.0.1) port 10001 (#0)
+> GET /cwp/ws.php HTTP/1.1
+> Host: localhost:10001
+> User-Agent: curl/7.43.0
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< Server: nginx/1.8.1
+< Date: Mon, 04 Apr 2016 02:50:23 GMT
+< Content-Type: text/html
+< Transfer-Encoding: chunked
+< X-Powered-By: PHP/5.4.19
+< Set-Cookie: PHPSessionID=hha7hd7td3bldcc9gruj8jqf76; path=/
+< Expires: Thu, 19 Nov 1981 08:52:00 GMT
+< Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+< Pragma: no-cache
+<
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>TEST</title>
+    <meta charset="UTF-8" />
+</head>
+<body>
+    Hello World!
+</body>
+</html>
+
+* Connection #0 to host localhost left intact
+```
+
 ### TODO
 
 * Complete additional Consul methods
