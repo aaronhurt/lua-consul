@@ -11,7 +11,14 @@ local _M = {
     health  = { api = "/v1/health" },
 }
 
--- interact with consul api
+-- Execute Consul API commands
+-- Executes calls against the Consul HTTP API and
+-- handles the result(s) including JSON decoding.
+-- @param self    Module object
+-- @param api     The complete API call string
+-- @param input   Optional input body to the API request
+-- @param method  Optional HTTP method - defaults to GET
+-- @return        Result and error or nil
 local function callConsul (self, api, input, method)
     -- add datacenter if specified
     if self.dc then api = api .. "?dc=" .. self.dc end
@@ -36,9 +43,14 @@ local function callConsul (self, api, input, method)
     http.TIMEOUT = self.timeout
 
     -- add input if specified and valid
-    if input and type(input) == "string" and string.len(input) > 0 then
-        request.source = ltn12.source.string(input)
-        request.headers["content-length"] = string.len(input)
+    if input then
+        if type(input) == "string" then
+            request.source = ltn12.source.string(input)
+            request.headers["content-length"] = string.len(input)
+        else
+            -- error out - we only support strings
+            return nil, "Invalid non-string input"
+        end
     end
 
     -- execute request
@@ -76,7 +88,18 @@ local function callConsul (self, api, input, method)
     return data, nil
 end
 
--- create new object
+-- Create a module object.
+-- Creates a module object from scratch or optionally
+-- based on another passed object.  The following object
+-- members are accepted:
+-- dc        Optional datacenter attribute - default nil
+-- addr      Optional Consul connection address - defaults to CONSUL_HTTP_ADDR
+--           from environment or 127.0.0.1:8500
+-- url       Optional url override - defaults to http://<addr>
+-- create    Optional http request.create function
+-- timeout   Optional http request timeout - defaults to 15 seconds
+-- @param o  Optional object settings
+-- @return   Module object
 function _M:new (o)
     local o   = o or {} -- create table if not passed
     o.dc      = o.dc or nil
@@ -91,7 +114,10 @@ function _M:new (o)
     return o
 end
 
--- get a key/value
+-- Get a key/value pair.
+-- @param key     The key name to retrieve
+-- @param decode  Optionally base64 decode values
+-- @return        Result and error or nil
 function _M:kvGet (key, decode)
     -- build call
     local api = self.kv.api .. "/" .. key
@@ -99,13 +125,8 @@ function _M:kvGet (key, decode)
     -- make request
     local data, err = callConsul(self, api)
 
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
     -- attempt base64 decoding if asked
-    if decode then
+    if data and err == nil and decode then
         for _, entry in ipairs(data) do
             if type(entry.Value) == "string" then
                 local decoded = base64.decode(entry.Value)
@@ -116,97 +137,73 @@ function _M:kvGet (key, decode)
         end
     end
 
-    -- return data
-    return data, nil
+    -- return result
+    return data, err
 end
 
--- list all keys under a prefix
+-- List all keys under a prefix.
+-- @param prefix  The k/v prefix to list
+-- @return        Result and error or nil
 function _M:kvKeys (prefix)
     -- build call
     local api = self.kv.api .. "/" .. prefix .. "?keys"
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return callConsul(self, api)
 end
 
--- write a key/value
+-- Write a key/value pair.
+-- @param key     The key name to write
+-- @param value   The string value to write
+-- @return        Result and error or nil
 function _M:kvPut (key, value)
     -- build call
     local api = self.kv.api .. "/" .. key
 
     -- make request
-    local data, err = callConsul(self, api, value, "PUT")
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return callConsul(self, api, value, "PUT")
 end
 
--- delete a key or prefix
+-- Delete a key or prefix.
+-- @param key      The key name or prefix to delete
+-- @param recurse  Optionally delete all keys under the given prefix
+-- @return         Result and error or nil
 function _M:kvDelete (key, recurse)
     -- build call
     local api = self.kv.api .. "/" .. key
     if recurse then api = api .. "?recurse" end
 
     -- make request
-    local data, err = callConsul(self, api, nil, "DELETE")
-
-    -- check data and error
-    if not resp or err then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api, nil, "DELETE")
 end
 
--- query health of the given node
+-- Query health of the given node.
+-- @param node  The node to query
+-- @return      Result and error or nil
 function _M:healthNode (node)
     -- build call
     local api = self.health.api .. "/node/" .. node
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return callConsul(self, api)
 end
 
--- query checks associated with a service
+-- Query checks associated with a service.
+-- @param service  The service to query
+-- @return         Result and error or nil
 function _M:healthChecks (service)
     -- build call
     local api = self.health.api .. "/checks/" .. service
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- query the health of a service
+-- Query the health of a service.
+-- @param service  The service to query
+-- @param passing  Optionally only return passing
+-- @param tag      Optionally filter to specific tags
+-- @return         Result and error or nil
 function _M:healthService (service, passing, tag)
     -- build call
     local api = self.health.api .. "/service/" .. service
@@ -214,118 +211,71 @@ function _M:healthService (service, passing, tag)
     if tag then api = api .. "?tag=" .. tag end
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- query checks in given state
+-- Query checks in given state.
+-- @param state  The state to query - defaults to any
+-- @return       Result and error or nil
 function _M:healthState (state)
     -- build call
     local state = state or "any"
     local api = self.health.api .. "/state/" .. state
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- list available datacenters
+-- List available datacenters.
+-- @return         Result and error or nil
 function _M:catalogDatacenters ()
     -- build call
     local api = self.catalog.api .. "/datacenters"
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- list available nodes
+-- List available nodes.
+-- @return         Result and error or nil
 function _M:catalogNodes ()
     -- build call
     local api = self.catalog.api .. "/nodes"
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- query a specific node
+-- Query a specific node.
+-- @param node  The node to query
+-- @return      Result and error or nil
 function _M:catalogNode (node)
     -- build call
     local api = self.catalog.api .. "/node/" .. node
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- list available services
+-- List available services.
+-- @return         Result and error or nil
 function _M:catalogServices ()
     -- build call
     local api = self.catalog.api .. "/services"
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return data, err = callConsul(self, api)
 end
 
--- query a specific service
+-- Query a specific service.
+-- @param service  The service to query
+-- @return         Result and error or nil
 function _M:catalogService (service)
     -- build call
     local api = self.catalog.api .. "/service/" .. service
 
     -- make request
-    local data, err = callConsul(self, api)
-
-    -- check data and error
-    if not data or err ~= nil then
-        return nil, err
-    end
-
-    -- return data
-    return data, nil
+    return callconsul(self, api)
 end
 
 -- return module table
