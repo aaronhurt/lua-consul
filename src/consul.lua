@@ -11,7 +11,7 @@ local _M = {
     health  = { api = "/v1/health" },
 }
 
--- Execute Consul API commands
+-- Execute Consul API commands.
 -- Executes calls against the Consul HTTP API and
 -- handles the result(s) including JSON decoding.
 -- @param self    Module object
