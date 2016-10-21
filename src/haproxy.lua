@@ -16,35 +16,45 @@ local function hasValue(tbl, ...)
 	return false, nil
 end
 
-function hostType(host)
-  local r = {err = 0, v4 = 1, v6 = 2, string = 3}
-  if type(host) ~= "string" then return r.err end
+-- determine the host type of the passed string
+local function hostType(host)
+	local r = {err = 0, v4 = 1, v6 = 2, string = 3}
+	if type(host) ~= "string" then
+		return r.err
+	end
 
-  -- check for format 1.11.111.111 for ipv4
-  local chunks = {host:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")}
-  if #chunks == 4 then
-    for _,v in pairs(chunks) do
-      if tonumber(v) > 255 then return r.string end
-    end
-    return r.v4
-  end
+	-- check for format 1.11.111.111 for ipv4
+	local chunks = {host:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")}
+	if #chunks == 4 then
+		for _,v in pairs(chunks) do
+			if tonumber(v) > 255 then
+				return r.string
+			end
+		end
+		return r.v4
+	end
 
-  -- check for ipv6 format, should be 8 'chunks' of numbers/letters
-  -- without trailing chars
-  local chunks = {host:match(("([a-fA-F0-9]*):"):rep(8):gsub(":$","$"))}
-  if #chunks == 8 then
-    for _,v in pairs(chunks) do
-      if #v > 0 and tonumber(v, 16) > 65535 then return r.string end
-    end
-    return r.v6
-  end
+	-- check for ipv6 format, should be 8 'chunks' of numbers/letters
+	-- without trailing chars
+	local chunks = {host:match(("([a-fA-F0-9]*):"):rep(8):gsub(":$","$"))}
+	if #chunks == 8 then
+		for _,v in pairs(chunks) do
+			if #v > 0 and tonumber(v, 16) > 65535 then
+				return r.string
+			end
+		end
+		return r.v6
+	end
 
-  -- non-ip host
-  return r.string
+	-- non-ip host
+	return r.string
 end
 
--- load services
-local function loadServices ()
+-- load service definitions from consul
+function loadServices()
+	-- init load timer
+	local stime = socket.gettime()
+
 	-- init consul
 	local c = consul:new()
 
@@ -119,10 +129,10 @@ local function loadServices ()
 				end
 				-- add service if all entries okay
 				if ok == true then
-					-- increase count
-					scount = scount + 1
 					-- add to service data
 					sdata[svc] = temps
+					-- increase count
+					scount = scount + 1
 				end
 			end
 		end
@@ -136,12 +146,12 @@ local function loadServices ()
 
 	-- all done
 	core.log(core.debug,
-		string.format("Loaded %d services from catalog", scount))
-
+		string.format("Loaded %d services from catalog in %0.3f seconds",
+		scount, socket.gettime() - stime))
 end
 
 -- generate a valid proxy request
-function generateRequest (txn)
+function generateRequest(txn)
 	-- check services
 	if not services then
 		-- error out
@@ -151,7 +161,7 @@ function generateRequest (txn)
 
 	-- check last update and refresh if needed
 	if (os.time() - updated) > 30 then
-		loadServices()
+		core.register_task(loadServices)
 	end
 
 	-- get request path
@@ -163,8 +173,6 @@ function generateRequest (txn)
 
 	-- attempt to find service by path
 	for svc, data in pairs(services) do
-		-- debugging
-		txn:Debug(string.format("checking path %s for svc: %s ", path, svc))
 		-- compare request path with service name
 		if string.match(path, string.format("^/%s/", svc)) then
 			-- found a match - select random service entry destination and format uri
