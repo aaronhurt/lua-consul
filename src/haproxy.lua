@@ -59,7 +59,7 @@ function loadServices()
 	local c = consul:new()
 
 	-- debugging
-	core.log(core.debug,
+	core.log(core.info,
 		string.format("Loading service catalog from %s", c.addr))
 
 	-- get service catalog
@@ -67,8 +67,8 @@ function loadServices()
 
 	-- check return
 	if not data or err ~= nil then
-		-- error out
-		core.log(core.alert,
+		-- log the error
+		core.log(core.err,
 			string.format("Failed to retrieve service listing: %s", err))
 		return
 	end
@@ -115,7 +115,7 @@ function loadServices()
 							temps.dest[idx] = string.format("%s:%d", ip, entry.Service.Port)
 						else
 							-- debugging
-							core.log(core.debug,
+							core.log(core.warning,
 								string.format("Failed to resolve %s: %s", entry.Service.Address, x))
 							-- resolution failed
 							ok = false
@@ -145,9 +145,12 @@ function loadServices()
 	services = sdata
 
 	-- all done
-	core.log(core.debug,
+	core.log(core.info,
 		string.format("Loaded %d services from catalog in %0.3f seconds",
 		scount, socket.gettime() - stime))
+
+	-- release control
+	core.done()
 end
 
 -- generate a valid proxy request
@@ -155,7 +158,9 @@ function generateRequest(txn)
 	-- check services
 	if not services then
 		-- error out
-		txn:Warning("Missing service list")
+		txn:Warning("Missing service definition - aborting request")
+		-- release control
+		core.done()
 		return
 	end
 
@@ -177,14 +182,14 @@ function generateRequest(txn)
 		if string.match(path, string.format("^/%s/", svc)) then
 			-- found a match - select random service entry destination and format uri
 			uri = string.format("http://%s%s", data.dest[math.random(#data.dest)], path)
-			txn:Debug(string.format("found match - set uri to %s", uri))
+			txn:Debug(string.format("Found path match - set uri to %s", uri))
 			break
 		end
 		-- no match yet - check default root providers
 		if data.default == true then
 			-- debugging
 			for _, d in ipairs(data.dest) do
-				txn:Debug(string.format("found default - adding %s", d))
+				txn:Debug(string.format("Found default root - adding %s", d))
 				table.insert(defaults, d)
 			end
 		end
@@ -199,12 +204,12 @@ function generateRequest(txn)
 		if #defaults > 0 then
 			-- no match but we have defaults - pick one at random
 			uri = string.format("http://%s%s", defaults[math.random(#defaults)], path)
-			txn:Debug(string.format("no match - set uri to default %s", uri))
+			txn:Debug(string.format("No match - set uri to default %s", uri))
 			txn.http:req_set_uri(uri)
 		end
 	end
 
-	-- all done
+	-- release control
 	core.done()
 end
 
