@@ -47,7 +47,7 @@ Get a list of available datacenters:
 dcs, err = c:catalogDatacenters()
 if dcs and err == nil then
 	for idx, entry in ipairs(dcs) do
-		print(idx,val)
+		print(idx, entry)
 	end
 end
 ```
@@ -58,7 +58,7 @@ Returns:
 2	dc2
 ```
 
-Query all passign services:
+Query all passing instances of a service:
 ```lua
 svc, err = c:healthService("testing", true)
 if svc and err == nil then
@@ -125,9 +125,9 @@ Returns:
 
 In addition to the Consul library there is a proof-of-concept HAProxy integration in this repository.
 
-Basic usage from the src directory:
+Basic usage from the main directory:
 ```
-$ haproxy -d -f ./haproxy.cfg
+$ haproxy -d -f ./src/haproxy.cfg
 Note: setting global.maxconn to 2000.
 Available polling systems :
      kqueue : pref=300,  test result OK

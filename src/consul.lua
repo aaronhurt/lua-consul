@@ -174,7 +174,7 @@ function _M:kvDelete (key, recurse)
     if recurse then api = api .. "?recurse" end
 
     -- make request
-    return data, err = callConsul(self, api, nil, "DELETE")
+    return callConsul(self, api, nil, "DELETE")
 end
 
 -- Query health of the given node.
@@ -196,7 +196,7 @@ function _M:healthChecks (service)
     local api = self.health.api .. "/checks/" .. service
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- Query the health of a service.
@@ -211,7 +211,7 @@ function _M:healthService (service, passing, tag)
     if tag then api = api .. "?tag=" .. tag end
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- Query checks in given state.
@@ -223,7 +223,7 @@ function _M:healthState (state)
     local api = self.health.api .. "/state/" .. state
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- List available datacenters.
@@ -233,7 +233,7 @@ function _M:catalogDatacenters ()
     local api = self.catalog.api .. "/datacenters"
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- List available nodes.
@@ -243,7 +243,7 @@ function _M:catalogNodes ()
     local api = self.catalog.api .. "/nodes"
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- Query a specific node.
@@ -254,7 +254,7 @@ function _M:catalogNode (node)
     local api = self.catalog.api .. "/node/" .. node
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- List available services.
@@ -264,7 +264,7 @@ function _M:catalogServices ()
     local api = self.catalog.api .. "/services"
 
     -- make request
-    return data, err = callConsul(self, api)
+    return callConsul(self, api)
 end
 
 -- Query a specific service.
@@ -275,7 +275,7 @@ function _M:catalogService (service)
     local api = self.catalog.api .. "/service/" .. service
 
     -- make request
-    return callconsul(self, api)
+    return callConsul(self, api)
 end
 
 -- return module table
