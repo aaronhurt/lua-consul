@@ -1,7 +1,12 @@
 local consul = require("consul")
 local socket = require("socket")
-local services = {}
-local updated = 0
+
+-- time between service updates
+local serviceLifetime = 30
+
+-- internal variable definitions
+local serviceTable = {}
+local lastUpdate = 0
 
 -- search a table for matching values
 local function hasValue(tbl, ...)
@@ -187,10 +192,10 @@ function loadServices()
 	end
 
 	-- set update time
-	updated = os.time()
+	lastUpdate = os.time()
 
 	-- replace service data
-	services = sdata
+	serviceTable = sdata
 
 	-- all done
 	core.log(core.info,
@@ -214,7 +219,7 @@ function buildRequest(txn)
 	txn:Debug(string.format("Attempting to build request for %s", requestPath))
 
 	-- attempt to find service by path
-	for servicePath, data in pairs(services) do
+	for servicePath, data in pairs(serviceTable) do
 		-- compare request path with service name
 		if string.match(requestPath, string.format("^/%s/", servicePath)) then
 			-- found a match - strip request path if needed
@@ -248,7 +253,7 @@ end
 -- handle http proxy request
 function httpRequestHandler(txn)
 	-- check services
-	if not services then
+	if not serviceTable then
 		-- error out
 		txn:Warning("Missing service definition - aborting request")
 		-- release control
@@ -257,7 +262,7 @@ function httpRequestHandler(txn)
 	end
 
 	-- check last update and refresh if needed
-	if (os.time() - updated) > 60 then
+	if (os.time() - lastUpdate) > serviceLifetime then
 		core.register_task(loadServices)
 	end
 
