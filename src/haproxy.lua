@@ -26,7 +26,7 @@ local function hostType(host)
 	-- check for format 1.11.111.111 for ipv4
 	local chunks = {host:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")}
 	if #chunks == 4 then
-		for _,v in pairs(chunks) do
+		for _, v in pairs(chunks) do
 			if tonumber(v) > 255 then
 				return r.string
 			end
@@ -38,7 +38,7 @@ local function hostType(host)
 	-- without trailing chars
 	local chunks = {host:match(("([a-fA-F0-9]*):"):rep(8):gsub(":$","$"))}
 	if #chunks == 8 then
-		for _,v in pairs(chunks) do
+		for _, v in pairs(chunks) do
 			if #v > 0 and tonumber(v, 16) > 65535 then
 				return r.string
 			end
@@ -48,6 +48,37 @@ local function hostType(host)
 
 	-- non-ip host
 	return r.string
+end
+
+-- build service address
+function hostPort(svc)
+	-- get host/address type
+	local hType = hostType(svc.Address)
+	-- check host type
+	if hType == 1 then
+		--ipv4 address
+		 return string.format("%s:%d", svc.Address, svc.Port), nil
+	elseif hType == 2 then
+		-- ipv6 address
+		return string.format("[%s]:%d", svc.Address, svc.Port), nil
+	elseif hType == 3 then
+		-- resolve hostname
+		local ip, x = socket.dns.toip(svc.Address)
+		-- check result
+		if ip then
+			-- reset service address
+			svc.Address = ip
+			-- recurse back into this function
+			return hostPort(svc)
+		else
+			-- error out
+			return "", string.format("Failed to resolve address %s for %s: %s",
+				svc.Address, svc.Service, x)
+		end
+	end
+	-- default return -- we shouldn't get here
+	return "", string.format("Failed to build uri for %s (address: %s port: %s)",
+		svc.Service, svc.Address, svc.Port)
 end
 
 -- load service definitions from consul
@@ -73,75 +104,92 @@ function loadServices()
 		return
 	end
 
+	-- hand back control before processing
+	core.yield()
+
 	-- local service info
 	local sdata = {}
 	local scount = 0
 
 	-- loop through services
 	for svc, tags in pairs(data) do
-		local match, matched = hasValue(tags, "proxy-root", "proxy-standard", "proxy-unique")
-		if match == true then
-			-- get service entries
-			entries, err = c:healthService(svc, true)
-			-- check return
-			if entries and err == nil then
-				-- service holder
-				local temps = {tags = tags, ids = {}, dest = {}, default = false}
-				-- set root if applicable
-				if matched == "proxy-root" then
-					temps.default = true
+		local match, matched = hasValue(tags, "proxy-root", "proxy-unique", "proxy-standard")
+		if match ~= true then
+			-- debugging
+			-- core.log(core.debug,
+			-- 	string.format("Skipping service %s - no matching proxy tags", svc))
+			goto skip
+		end
+		-- get service health
+		entries, err = c:healthService(svc, true)
+		-- check return
+		if not entries or err ~= nil then
+			-- error fetching service
+			core.log(core.warning,
+				string.format("Failed fetching service health for %s", svc))
+			goto skip
+		end
+		-- loop through service entries
+		for _, entry in ipairs(entries) do
+			-- init specific service data table
+			local data = {
+				name = entry.Service.Service,
+				default = false,
+				unique = false,
+				host = nil,
+				path = entry.Service.Service,
+				strip = true
+			}
+			-- toggle default if needed
+			if matched == "proxy-root" then
+				data.default = true
+			end
+			-- change service name to id for unique services
+			if matched == "proxy-unique" then
+				data.unique = true
+				data.path = entry.Service.ID
+			end
+			-- rewrite path if needed
+			if hasValue(tags, "proxy-dash2dots") == true then
+				data.path = string.gsub(data.path, "-", ".")
+			end
+			-- toggle strip if needed
+			if hasValue(tags, "proxy-nostrip") == true then
+				data.strip = false
+			end
+			-- get host and port notation
+			data.host, err = hostPort(entry.Service)
+			-- add service to list
+			if data.host and err == nil then
+				-- init table
+				if not sdata[data.path] then
+					sdata[data.path] = {}
 				end
-				-- error toggle
-				local ok = true
-				-- loop through service entries
-				for idx, entry in ipairs(entries) do
-					-- set id
-					temps.ids[idx] = entry.Service.ID
-					-- get host type
-					local hType = hostType(entry.Service.Address)
-					-- check host type
-					if hType == 1 then
-						-- populate ipv4 address
-						temps.dest[idx] = string.format("%s:%d", entry.Service.Address, entry.Service.Port)
-					elseif hType == 2 then
-						-- populate ipv6 address
-						temps.dest[idx] = string.format("[%s]:%d", entry.Service.Address, entry.Service.Port)
-					elseif hType == 3 then
-						-- resolve hostname
-						local ip, x = socket.dns.toip(entry.Service.Address)
-						-- check result
-						if ip then
-							-- populate ipv4 address
-							temps.dest[idx] = string.format("%s:%d", ip, entry.Service.Port)
-						else
-							-- debugging
-							core.log(core.warning,
-								string.format("Failed to resolve %s: %s", entry.Service.Address, x))
-							-- resolution failed
-							ok = false
-							break
-						end
-					else
-						-- unknown or invalid service address
-						ok = false
-						break
-					end
-				end
-				-- add service if all entries okay
-				if ok == true then
-					-- add to service data
-					sdata[svc] = temps
-					-- increase count
-					scount = scount + 1
+				-- insert current values
+				table.insert(sdata[data.path], {
+					name = data.name,
+					default = data.default,
+					unique = data.unique,
+					host = data.host,
+					path = data.path,
+					strip = data.strip
+				})
+				-- increase count
+				scount = scount + 1
+				-- process services in chunks
+				if scount % 5 == 0 then
+					core.yield()
 				end
 			end
 		end
+		-- end of loop
+		::skip::
 	end
 
 	-- set update time
 	updated = os.time()
 
-	-- export service data
+	-- replace service data
 	services = sdata
 
 	-- all done
@@ -153,8 +201,52 @@ function loadServices()
 	core.done()
 end
 
--- generate a valid proxy request
-function generateRequest(txn)
+-- build proxy request uri
+function buildRequest(txn)
+	-- get request path
+	local requestPath = txn.sf:path()
+
+	-- init variables
+	local uri = nil
+	local defaults = {}
+
+	-- debugging
+	txn:Debug(string.format("Attempting to build request for %s", requestPath))
+
+	-- attempt to find service by path
+	for servicePath, data in pairs(services) do
+		-- compare request path with service name
+		if string.match(requestPath, string.format("^/%s/", servicePath)) then
+			-- found a match - strip request path if needed
+			if data[1].strip == true then
+				requestPath = string.gsub(requestPath, string.format("/%s/", servicePath), "/", 1)
+			end
+			uri = string.format("http://%s%s", data[math.random(#data)].host, requestPath)
+			txn:Debug(string.format("Found path match for %s - proxying to %s", data[1].name, uri))
+			return uri
+		end
+		-- no match - check default root providers
+		if data[1].default == true then
+			for _, d in ipairs(data) do
+				table.insert(defaults, d.host)
+			end
+		end
+	end
+
+	-- check defaults before bailing
+	if #defaults > 0 then
+		-- no path match - pick a random entry from the default root providers
+		uri = string.format("http://%s%s", defaults[math.random(#defaults)], requestPath)
+		txn:Debug(string.format("No path match - proxying to default %s", uri))
+		return uri
+	end
+
+	-- default return - no match
+	return nil
+end
+
+-- handle http proxy request
+function httpRequestHandler(txn)
 	-- check services
 	if not services then
 		-- error out
@@ -165,48 +257,20 @@ function generateRequest(txn)
 	end
 
 	-- check last update and refresh if needed
-	if (os.time() - updated) > 30 then
+	if (os.time() - updated) > 60 then
 		core.register_task(loadServices)
 	end
 
-	-- get request path
-	local path = txn.sf:path()
+	-- build request uri
+	local uri = buildRequest(txn)
 
-	-- init variables
-	local uri = nil
-	local defaults = {}
-
-	-- attempt to find service by path
-	for svc, data in pairs(services) do
-		-- compare request path with service name
-		if string.match(path, string.format("^/%s/", svc)) then
-			-- found a match - select random service entry destination and format uri
-			uri = string.format("http://%s%s", data.dest[math.random(#data.dest)], path)
-			txn:Debug(string.format("Found path match - set uri to %s", uri))
-			break
-		end
-		-- no match yet - check default root providers
-		if data.default == true then
-			-- debugging
-			for _, d in ipairs(data.dest) do
-				txn:Debug(string.format("Found default root - adding %s", d))
-				table.insert(defaults, d)
-			end
-		end
-	end
-
-	-- check uri and set request if present
+	-- check request uri
 	if uri ~= nil then
-		-- set uri
+		-- set request
 		txn.http:req_set_uri(uri)
 	else
-		-- check defaults before bailing
-		if #defaults > 0 then
-			-- no match but we have defaults - pick one at random
-			uri = string.format("http://%s%s", defaults[math.random(#defaults)], path)
-			txn:Debug(string.format("No match - set uri to default %s", uri))
-			txn.http:req_set_uri(uri)
-		end
+		-- log warning
+		txn:Warning("Failed to build proxy request for %s", txn.sf:path())
 	end
 
 	-- release control
@@ -215,4 +279,4 @@ end
 
 -- register functions
 core.register_init(loadServices)
-core.register_action("generateRequest", { "http-req" }, generateRequest)
+core.register_action("httpRequestHandler", { "http-req" }, httpRequestHandler)
