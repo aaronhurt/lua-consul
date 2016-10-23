@@ -127,7 +127,7 @@ In addition to the Consul library there is a proof-of-concept HAProxy integratio
 
 Basic usage from the main directory:
 ```
-$ haproxy -d -f ./src/haproxy.cfg
+$ haproxy -d -f haproxy/haproxy.cfg
 Note: setting global.maxconn to 2000.
 Available polling systems :
      kqueue : pref=300,  test result OK

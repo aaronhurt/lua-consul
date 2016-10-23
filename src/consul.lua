@@ -123,7 +123,7 @@ function _M:kvGet (key, decode)
     local api = self.kv.api .. "/" .. key
 
     -- make request
-    local data, err = callConsul(self, api)
+    local data, err = self:callConsul(api)
 
     -- attempt base64 decoding if asked
     if data and err == nil and decode then
@@ -149,7 +149,7 @@ function _M:kvKeys (prefix)
     local api = self.kv.api .. "/" .. prefix .. "?keys"
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Write a key/value pair.
@@ -161,7 +161,7 @@ function _M:kvPut (key, value)
     local api = self.kv.api .. "/" .. key
 
     -- make request
-    return callConsul(self, api, value, "PUT")
+    return self:callConsul(api, value, "PUT")
 end
 
 -- Delete a key or prefix.
@@ -174,7 +174,7 @@ function _M:kvDelete (key, recurse)
     if recurse then api = api .. "?recurse" end
 
     -- make request
-    return callConsul(self, api, nil, "DELETE")
+    return self:callConsul(api, nil, "DELETE")
 end
 
 -- Query health of the given node.
@@ -185,7 +185,7 @@ function _M:healthNode (node)
     local api = self.health.api .. "/node/" .. node
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Query checks associated with a service.
@@ -196,7 +196,7 @@ function _M:healthChecks (service)
     local api = self.health.api .. "/checks/" .. service
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Query the health of a service.
@@ -211,7 +211,7 @@ function _M:healthService (service, passing, tag)
     if tag then api = api .. "?tag=" .. tag end
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Query checks in given state.
@@ -223,7 +223,7 @@ function _M:healthState (state)
     local api = self.health.api .. "/state/" .. state
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- List available datacenters.
@@ -233,7 +233,7 @@ function _M:catalogDatacenters ()
     local api = self.catalog.api .. "/datacenters"
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- List available nodes.
@@ -243,7 +243,7 @@ function _M:catalogNodes ()
     local api = self.catalog.api .. "/nodes"
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Query a specific node.
@@ -254,7 +254,7 @@ function _M:catalogNode (node)
     local api = self.catalog.api .. "/node/" .. node
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- List available services.
@@ -264,7 +264,7 @@ function _M:catalogServices ()
     local api = self.catalog.api .. "/services"
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- Query a specific service.
@@ -275,7 +275,7 @@ function _M:catalogService (service)
     local api = self.catalog.api .. "/service/" .. service
 
     -- make request
-    return callConsul(self, api)
+    return self:callConsul(api)
 end
 
 -- return module table
