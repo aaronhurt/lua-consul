@@ -62,7 +62,7 @@ function hostPort(svc)
 	-- check host type
 	if hType == 1 then
 		--ipv4 address
-		 return string.format("%s:%d", svc.Address, svc.Port), nil
+		return string.format("%s:%d", svc.Address, svc.Port), nil
 	elseif hType == 2 then
 		-- ipv6 address
 		return string.format("[%s]:%d", svc.Address, svc.Port), nil
@@ -156,7 +156,7 @@ function loadServices()
 			end
 			-- rewrite path if needed
 			if hasValue(tags, "proxy-dash2dots") == true then
-				data.path = string.gsub(data.path, "-", ".")
+				data.path = data.path:gsub("-", ".")
 			end
 			-- toggle strip if needed
 			if hasValue(tags, "proxy-nostrip") == true then
@@ -212,7 +212,7 @@ function buildRequest(txn)
 	local requestPath = txn.sf:path()
 
 	-- init variables
-	local uri = nil
+	local uri = "http://%s%s"
 	local defaults = {}
 
 	-- debugging
@@ -221,12 +221,12 @@ function buildRequest(txn)
 	-- attempt to find service by path
 	for servicePath, data in pairs(serviceTable) do
 		-- compare request path with service name
-		if string.match(requestPath, string.format("^/%s/", servicePath)) then
+		if requestPath:match(string.format("^/%s/", servicePath)) then
 			-- found a match - strip request path if needed
 			if data[1].strip == true then
-				requestPath = string.gsub(requestPath, string.format("/%s/", servicePath), "/", 1)
+				requestPath = requestPath:gsub(string.format("/%s/", servicePath), "/", 1)
 			end
-			uri = string.format("http://%s%s", data[math.random(#data)].host, requestPath)
+			uri = uri:format(data[math.random(#data)].host, requestPath)
 			txn:Debug(string.format("Found path match for %s - proxying to %s", data[1].name, uri))
 			return uri
 		end
@@ -239,9 +239,9 @@ function buildRequest(txn)
 	end
 
 	-- check defaults before bailing
-	if #defaults > 0 then
+	if defaults and #defaults > 0 then
 		-- no path match - pick a random entry from the default root providers
-		uri = string.format("http://%s%s", defaults[math.random(#defaults)], requestPath)
+		uri = uri:format(defaults[math.random(#defaults)], requestPath)
 		txn:Debug(string.format("No path match - proxying to default %s", uri))
 		return uri
 	end

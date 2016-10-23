@@ -46,7 +46,7 @@ local function callConsul (self, api, input, method)
     if input then
         if type(input) == "string" then
             request.source = ltn12.source.string(input)
-            request.headers["content-length"] = string.len(input)
+            request.headers["content-length"] = input:len()
         else
             -- error out - we only support strings
             return nil, "Invalid non-string input"
