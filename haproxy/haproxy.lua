@@ -210,10 +210,16 @@ end
 function buildRequest(txn)
 	-- get request path
 	local requestPath = txn.sf:path()
+	local queryString = txn.sf:query()
 
 	-- init variables
 	local uri = "http://%s%s"
 	local defaults = {}
+
+	-- append query string if needed
+	if queryString ~= "" then
+		uri = uri .. "?" .. queryString
+	end
 
 	-- debugging
 	txn:Debug(string.format("Attempting to build request for %s", requestPath))
