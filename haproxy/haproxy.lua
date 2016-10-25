@@ -124,6 +124,9 @@ function loadServices()
 			-- 	string.format("Skipping service %s - no matching proxy tags", svc))
 			goto skip
 		end
+		-- debugging
+		-- core.log(core.debug,
+		-- 	string.format("Fetching health data for %s", svc))
 		-- get service health
 		entries, err = c:healthService(svc, true)
 		-- check return
@@ -214,28 +217,27 @@ function buildRequest(txn)
 	local queryString = txn.sf:query()
 
 	-- init variables
-	local uri = "http://%s%s"
+	local uri = nil
+	local urif = "http://%s%s"
 	local defaults = {}
-
-	-- append query string if needed
-	if queryString ~= "" then
-		uri = uri .. "?" .. queryString
-	end
 
 	-- debugging
 	txn:Debug(string.format("Attempting to build request for %s", requestPath))
 
 	-- attempt to find service by path
 	for servicePath, data in pairs(serviceTable) do
+		-- debugging
+		-- txn:Debug(string.format("Checking servicePath %s against requestPath %s",
+		-- 	servicePath, requestPath))
 		-- compare request path with service name
-		if requestPath:match(string.format("^/%s/", servicePath)) then
+		if requestPath:match(string.format("^/%s/", servicePath:gsub("([^%w])", "%%%1"))) then
 			-- found a match - strip request path if needed
 			if data[1].strip == true then
-				requestPath = requestPath:gsub(string.format("/%s/", servicePath), "/", 1)
+				requestPath = requestPath:gsub(string.format("^/%s/", servicePath:gsub("([^%w])", "%%%1")), "/", 1)
 			end
-			uri = uri:format(data[math.random(#data)].host, requestPath)
+			uri = urif:format(data[math.random(#data)].host, requestPath)
 			txn:Debug(string.format("Found path match for %s - proxying to %s", data[1].name, uri))
-			return uri
+			break
 		end
 		-- no match - check default root providers
 		if data[1].default == true then
@@ -245,16 +247,20 @@ function buildRequest(txn)
 		end
 	end
 
-	-- check defaults before bailing
-	if defaults and #defaults > 0 then
+	-- check defaults if uri is still nil
+	if uri == nil and #defaults > 0 then
 		-- no path match - pick a random entry from the default root providers
-		uri = uri:format(defaults[math.random(#defaults)], requestPath)
+		uri = urif:format(defaults[math.random(#defaults)], requestPath)
 		txn:Debug(string.format("No path match - proxying to default %s", uri))
-		return uri
 	end
 
-	-- default return - no match
-	return nil
+	-- append query string if needed
+	if uri ~= nil and queryString ~= "" then
+		uri = uri .. "?" .. queryString
+	end
+
+	-- default return - could be nil
+	return uri
 end
 
 -- handle http proxy request
