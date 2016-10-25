@@ -1,15 +1,15 @@
-local consul = require("consul")
-local socket = require("socket")
+consul = require("consul")
+socket = require("socket")
 
 -- time between service updates
-local serviceLifetime = 30
+serviceLifetime = 30
 
 -- internal variable definitions
-local serviceTable = {}
-local lastUpdate = 0
+serviceTable = {}
+lastUpdate = 0
 
 -- search a table for matching values
-local function hasValue(tbl, ...)
+function hasValue(tbl, ...)
 	local args = {...}
 	for _, arg in ipairs(args) do
 		for _, val in pairs(tbl) do
@@ -22,7 +22,7 @@ local function hasValue(tbl, ...)
 end
 
 -- determine the host type of the passed string
-local function hostType(host)
+function hostType(host)
 	local r = {err = 0, v4 = 1, v6 = 2, string = 3}
 	if type(host) ~= "string" then
 		return r.err
@@ -56,7 +56,7 @@ local function hostType(host)
 end
 
 -- build service address
-function hostPort(svc)
+local function hostPort(svc)
 	-- get host/address type
 	local hType = hostType(svc.Address)
 	-- check host type
