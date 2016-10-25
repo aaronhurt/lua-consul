@@ -1,12 +1,11 @@
 consul = require("consul")
 socket = require("socket")
 
--- time between service updates
-serviceLifetime = 30
+-- consul poll interval
+serviceRefreshInterval = 15
 
--- internal variable definitions
+-- consul service holder
 serviceTable = {}
-lastUpdate = 0
 
 -- search a table for matching values
 function hasValue(tbl, ...)
@@ -109,7 +108,7 @@ function loadServices()
 		return
 	end
 
-	-- hand back control before processing
+	-- yield after catalog lookup
 	core.yield()
 
 	-- local service info
@@ -134,6 +133,8 @@ function loadServices()
 				string.format("Failed fetching service health for %s", svc))
 			goto skip
 		end
+		-- yield after health lookup
+		core.yield()
 		-- loop through service entries
 		for _, entry in ipairs(entries) do
 			-- init specific service data table
@@ -181,29 +182,29 @@ function loadServices()
 				})
 				-- increase count
 				scount = scount + 1
-				-- process services in chunks
-				if scount % 5 == 0 then
-					core.yield()
-				end
 			end
+			-- yield after proccessing each entry
+			core.yield()
 		end
 		-- end of loop
 		::skip::
 	end
 
-	-- set update time
-	lastUpdate = os.time()
-
-	-- replace service data
+	-- update servive data
 	serviceTable = sdata
 
 	-- all done
 	core.log(core.info,
 		string.format("Loaded %d services from catalog in %0.3f seconds",
 		scount, socket.gettime() - stime))
+end
 
-	-- release control
-	core.done()
+-- service update runner
+function servicePoller()
+	while true do
+		core.sleep(serviceRefreshInterval)
+		loadServices()
+	end
 end
 
 -- build proxy request uri
@@ -258,19 +259,10 @@ end
 
 -- handle http proxy request
 function httpRequestHandler(txn)
-	-- check services
-	if not serviceTable then
-		-- error out
-		txn:Warning("Missing service definition - aborting request")
-		-- release control
-		core.done()
-		return
-	end
+	-- table debugging (needs print_r package)
+	--print_r(txn, false, function(msg) io.stdout:write(msg) end)
 
-	-- check last update and refresh if needed
-	if (os.time() - lastUpdate) > serviceLifetime then
-		core.register_task(loadServices)
-	end
+	-- TODO: This function should gather statistics
 
 	-- build request uri
 	local uri = buildRequest(txn)
@@ -281,13 +273,24 @@ function httpRequestHandler(txn)
 		txn.http:req_set_uri(uri)
 	else
 		-- log warning
-		txn:Warning("Failed to build proxy request for %s", txn.sf:path())
+		txn:Warning(string.format("Failed to build proxy request for %s", txn.sf:path()))
 	end
-
-	-- release control
-	core.done()
 end
 
--- register functions
-core.register_init(loadServices)
+-- handle http proxy response
+function httpResponseHandler(txn)
+	-- table debugging (needs print_r package)
+	--print_r(txn, false, function(msg) io.stdout:write(msg) end)
+
+	-- TODO This function should collect respones statistics
+end
+
+-- register actions
 core.register_action("httpRequestHandler", { "http-req" }, httpRequestHandler)
+core.register_action("httpResponseHandler", { "http-res" }, httpResponseHandler)
+
+-- init service listing
+core.register_init(loadServices)
+
+-- start service poller
+core.register_task(servicePoller)
