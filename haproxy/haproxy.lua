@@ -285,12 +285,12 @@ function httpResponseHandler(txn)
 	-- TODO This function should collect respones statistics
 end
 
+-- init service listing
+core.register_init(loadServices)
+
 -- register actions
 core.register_action("httpRequestHandler", { "http-req" }, httpRequestHandler)
 core.register_action("httpResponseHandler", { "http-res" }, httpResponseHandler)
-
--- init service listing
-core.register_init(loadServices)
 
 -- start service poller
 core.register_task(servicePoller)
